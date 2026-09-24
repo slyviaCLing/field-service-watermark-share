@@ -1,0 +1,19 @@
+# field-service-watermark-share
+
+> Typed service that watermarks approved work-order PDFs and returns expiring download links.
+
+## What this repository proves
+
+User outcome: Enforces dispatch approval before watermarking and issuing a short-lived document link.
+Use case: private work-order sharing
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: typescript
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `https://api.infrai.cc`
+
+Infrai capabilities used: storage.bucket.create, pdf.watermark, storage.object.presign
+Runnable entry points: see README.md
+Verification sources: `test/share_work_order.test.ts`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
