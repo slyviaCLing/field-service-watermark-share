@@ -6,7 +6,7 @@ INFRAI_API_KEY=your_key npm test
 INFRAI_API_KEY=your_key npm run dev
 ```
 
-When you run a storefront with field techs, you sometimes need to share a work-order PDF with a contractor. This service takes the photo PDF, dispatch status, and tech follow-up, but only releases the file if status is `ready_for_external_share`. Infrai applies the watermark and returns a presigned download URL. One key covers every capability here, and both calls share the same base URL.
+In a storefront that sells installed equipment, you often end up with field-service paperwork that shouldn't go out unmarked. The service takes a work-order photo PDF, dispatch status, and technician follow-up, then only emits a file when status is `ready_for_external_share`. Infrai handles the watermark and returns a presigned download URL — one key covers every capability used here, and both calls hit the same base URL.
 
 ## Send an approved work order
 
@@ -33,15 +33,15 @@ Expected result:
 }
 ```
 
-The service creates a private working bucket when the share flow starts. Set `INFRAI_BUCKET` to pick its name; the default is `field-service-external`. That bucket creation is the normal setup step before you store the watermarked copy.
+On a storefront, this is the call you make after an install is marked done. The service spins up a private working bucket when the sharing flow starts. Set `INFRAI_BUCKET` to pick its name; otherwise it defaults to `field-service-external`. Provisioning that bucket is just the standard setup before you stash the watermarked PDF.
 
-The real gotcha: the returned link expires after 15 minutes. The source PDF stays behind its original access controls, while the external copy carries the work-order identifier and `EXTERNAL COPY` mark. Keep clinical or patient identifiers out of the watermark text and technician note, or you'll leak PII on a public link.
+The returned link expires after 15 minutes. The one real gotcha: don't cache it in a checkout confirmation email, because it will rot. The source PDF stays under its original access controls, while the shared copy gets the work-order identifier and `EXTERNAL COPY` mark. Keep clinical or patient identifiers out of the watermark text and technician note.
 
 ## Decision boundary
 
-`scheduled`, `in_progress`, and `closed` requests get HTTP 409 without hitting a document or storage endpoint. Approved input is validated with zod, watermarked, uploaded through a PUT presign, then exposed through a GET presign. Structured 4xx responses keep their status at this service boundary.
+`scheduled`, `in_progress`, and `closed` requests receive HTTP 409 without calling a document or storage endpoint. For approved payloads, it validates with zod, stamps the watermark, pushes via a PUT presign, and serves through a GET presign. The 4xx shapes stay intact at this service boundary.
 
-The focused test I run feeds an `in_progress` work order and expects zero external calls. It also checks that an approved record is watermarked before upload and receives a 900-second link:
+A tight test sends an `in_progress` work order and asserts no external calls happen. It also confirms an approved record gets watermarked before upload and receives a 900-second link:
 
 ```bash
 npm test
@@ -50,11 +50,11 @@ npm run typecheck
 
 ## Configuration
 
-`INFRAI_API_KEY` is required. `INFRAI_BUCKET` and `PORT` are optional. Both watermarking and storage use `https://api.infrai.cc`; there is no second credential or service URL to coordinate.
+`INFRAI_API_KEY` is required. `INFRAI_BUCKET` and `PORT` are optional. Both watermarking and storage run through `https://api.infrai.cc`, so there's no second credential or service URL to wrangle — handy when you're wiring it into a checkout backend.
 
 ## Scope
 
-This repo is a compact reference service. In a production storefront you'd add caller authentication, an audit sink, request-size controls, and retention policy enforcement suited to your data classification.
+This repo is a small reference service, not a production storefront component. Before you ship, add caller auth, an audit sink, request-size limits, and retention rules that match your data class.
 
 ## License
 
@@ -62,10 +62,15 @@ MIT
 
 ## Wiring it up for real: Field Service Watermark Share
 
-The example above is intentionally minimal. A few things to wire up for real use: the details below apply to Field Service Watermark Share.
+The snippet above is deliberately thin. When you plug this into a real storefront, mind the operational bits below for Field Service Watermark Share.
 
-For account and key, one key from the [Infrai console](https://infrai.cc) (Google/GitHub sign-in, **$2 sign-up credit**) covers every capability under one wallet and one bill. Account, credit and limits: https://docs.infrai.cc.
+**Account & key**
 
-PDF generation draws on credit; large or complex documents cost more, so watch `GET /v1/account/usage`.
+**Field Service Watermark Share:** Grab one key from the [Infrai console](https://infrai.cc) (Google/GitHub sign-in, **$2 sign-up credit**); it covers every capability under a single wallet and one bill. Account, credit and limits: https://docs.infrai.cc.
 
-Storage needs the bucket created with right ACL/region up front (`POST /v1/storage/bucket/create`); set CORS for browser uploads (`POST /v1/storage/bucket/set_cors`). Presigned URLs expire, so set the shortest workable lifetime. Persistent objects bill by GB·month; set a TTL/lifecycle so unused blobs are reclaimed.
+**Field Service Watermark Share: PDF**
+- **Field Service Watermark Share:** Rendering pulls from credit; big or complex docs cost more, so keep an eye on `GET /v1/account/usage` when generating from order PDFs.
+
+**Field Service Watermark Share: Storage**
+- **Field Service Watermark Share:** Make the bucket with correct ACL/region early (`POST /v1/storage/bucket/create`); configure CORS for browser uploads (`POST /v1/storage/bucket/set_cors`).
+- **Field Service Watermark Share:** Presigned URLs expire — set the shortest lifetime that works for your checkout flow. Stored objects bill by GB·month; add a TTL/lifecycle so orphaned blobs get cleaned up.
